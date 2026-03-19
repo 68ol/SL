@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>학사일정 보기</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Bebas+Neue&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0d;
+    --border: #2a2a2a;
+    --accent: #e8d5b0;
+    --dim: #555;
+    --white: #f0ece4;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'DM Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 0.25em;
+    color: var(--accent);
+  }
+  .counter {
+    font-size: 0.7rem;
+    color: var(--dim);
+    letter-spacing: 0.15em;
+  }
+
+  .stage {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    cursor: grab;
+  }
+  .stage.dragging { cursor: grabbing; }
+
+  .track {
+    display: flex;
+    height: 100%;
+    width: 200%;
+    transition: transform 0.55s cubic-bezier(0.77, 0, 0.175, 1);
+    will-change: transform;
+  }
+
+  .slide {
+    width: 50%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .img-wrap {
+    width: calc(100% - 48px);
+    height: calc(100% - 48px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .img-wrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    animation: fadeIn 0.35s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:scale(0.97); } to { opacity:1; transform:scale(1); } }
+
+  .slide-num {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--dim);
+    pointer-events: none;
+  }
+
+  footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 16px 32px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-nav {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--white);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    padding: 9px 24px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-nav:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn-nav:disabled { opacity: 0.2; cursor: default; }
+
+  .dots {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+  }
+  .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s, transform 0.3s;
+    cursor: pointer;
+  }
+  .dot.active { background: var(--accent); transform: scale(1.5); }
+
+  .btn-bgm {
+    position: fixed;
+    top: 14px;
+    right: 32px;
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    z-index: 100;
+  }
+  .btn-bgm:hover { opacity: 0.7; }
+  .btn-bgm.off { border-color: var(--border); color: var(--dim); }
+
+  .hint {
+    position: fixed;
+    bottom: 72px;
+    right: 22px;
+    font-size: 0.58rem;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    line-height: 2;
+    text-align: right;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+</style>
+</head>
+<body>
+
+<audio id="bgm" loop src="https://raw.githubusercontent.com/68ol/SL/refs/heads/main/First%20Day%20Jitters.mp3"></audio>
+
+<header>
+  <h1>학사일정 보기</h1>
+  <span class="counter" id="counterLabel">01 / 02</span>
+</header>
+
+<button class="btn-bgm" id="btnBgm" onclick="toggleBgm()">■ BGM</button>
+
+<div class="stage" id="stage">
+  <div class="track" id="track">
+
+    <div class="slide">
+      <div class="img-wrap">
+        <img src="https://raw.githubusercontent.com/68ol/SL/refs/heads/main/%ED%95%99%EC%82%AC%EC%9D%BC%EC%A0%95.png" alt="학사일정">
+      </div>
+      <span class="slide-num">01</span>
+    </div>
+
+    <div class="slide">
+      <div class="img-wrap">
+        <img src="https://raw.githubusercontent.com/68ol/SL/refs/heads/main/%EC%88%98%EB%A0%A8%ED%9A%8C%EC%9D%BC%EC%A0%95.png" alt="수련회일정">
+      </div>
+      <span class="slide-num">02</span>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <button class="btn-nav" id="btnPrev" onclick="go(-1)" disabled>← PREV</button>
+  <div class="dots">
+    <div class="dot active" id="dot0"></div>
+    <div class="dot" id="dot1"></div>
+  </div>
+  <button class="btn-nav" id="btnNext" onclick="go(1)">NEXT →</button>
+</footer>
+
+<div class="hint">← → 키로 이동<br>드래그·스와이프로 넘기기</div>
+
+<script>
+  // ── 슬라이더 ──
+  let current = 0;
+  const track        = document.getElementById('track');
+  const dots         = [document.getElementById('dot0'), document.getElementById('dot1')];
+  const btnPrev      = document.getElementById('btnPrev');
+  const btnNext      = document.getElementById('btnNext');
+  const counterLabel = document.getElementById('counterLabel');
+
+  function go(dir) {
+    const next = current + dir;
+    if (next < 0 || next > 1) return;
+    current = next;
+    render();
+  }
+  function render() {
+    track.style.transform = `translateX(-${current * 50}%)`;
+    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+    btnPrev.disabled = current === 0;
+    btnNext.disabled = current === 1;
+    counterLabel.textContent = String(current + 1).padStart(2,'0') + ' / 02';
+  }
+
+  // ── BGM (기본 ON) ──
+  const bgm    = document.getElementById('bgm');
+  const btnBgm = document.getElementById('btnBgm');
+  let playing  = false; // autoplay 정책 때문에 실제 재생 여부로 관리
+
+  // 첫 번째 사용자 인터랙션 시 자동 재생 시도
+  function tryAutoplay() {
+    bgm.play().then(() => {
+      playing = true;
+      btnBgm.textContent = '■ BGM';
+      btnBgm.classList.remove('off');
+    }).catch(() => {
+      // 자동재생 차단된 경우 — 버튼으로 유도
+      playing = false;
+      btnBgm.textContent = '♪ BGM';
+      btnBgm.classList.add('off');
+    });
+    document.removeEventListener('click', tryAutoplay);
+    document.removeEventListener('keydown', tryAutoplay);
+    document.removeEventListener('touchstart', tryAutoplay);
+  }
+
+  // 페이지 로드 즉시 시도 (일부 브라우저 허용)
+  bgm.play().then(() => {
+    playing = true;
+  }).catch(() => {
+    // 차단됨 → 첫 인터랙션 대기
+    btnBgm.textContent = '♪ BGM';
+    btnBgm.classList.add('off');
+    document.addEventListener('click', tryAutoplay);
+    document.addEventListener('keydown', tryAutoplay);
+    document.addEventListener('touchstart', tryAutoplay);
+  });
+
+  function toggleBgm() {
+    if (playing) {
+      bgm.pause();
+      playing = false;
+      btnBgm.textContent = '♪ BGM';
+      btnBgm.classList.add('off');
+    } else {
+      bgm.play();
+      playing = true;
+      btnBgm.textContent = '■ BGM';
+      btnBgm.classList.remove('off');
+    }
+  }
+
+  // ── 드래그 ──
+  const stage = document.getElementById('stage');
+  let startX = null;
+  stage.addEventListener('mousedown', e => { startX = e.clientX; stage.classList.add('dragging'); });
+  window.addEventListener('mouseup', e => {
+    if (startX === null) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1);
+    startX = null;
+    stage.classList.remove('dragging');
+  });
+  stage.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener('touchend', e => {
+    if (startX === null) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1);
+    startX = null;
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'ArrowRight') go(1);
+  });
+</script>
+</body>
+</html>
